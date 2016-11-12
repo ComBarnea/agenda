@@ -45,6 +45,7 @@ describe("agenda", function() {
 
       MongoClient.connect(mongoCfg, function( error, db ){
         mongo = db;
+
         setTimeout(function() {
           clearJobs(function() {
             jobs.define('someJob', jobProcessor);
@@ -70,7 +71,6 @@ describe("agenda", function() {
       });
     }, 50);
   });
-
   describe('Agenda', function() {
     it('sets a default processEvery', function() {
       expect(jobs._processEvery).to.be(5000);
