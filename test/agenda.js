@@ -34,6 +34,7 @@ function failOnError(err) {
   }
 }
 
+/*
 describe("agenda mongo", function() {
 
   beforeEach(function(done) {
@@ -578,7 +579,7 @@ describe("agenda mongo", function() {
         now.setMilliseconds(0);
         now.setSeconds(0);
         job.attrs.lastRunAt = now;
-        job.repeatEvery('*/2 * * * *');
+        job.repeatEvery('*!/2 * * * *');
         job.computeNextRunAt();
         expect(job.attrs.nextRunAt.valueOf()).to.be(now.valueOf() + 60000);
       });
@@ -1481,8 +1482,10 @@ describe("agenda mongo", function() {
   });
 
 });
+*/
 
 
+var num = 0;
 
 describe("agenda postgres", function() {
 
@@ -1499,30 +1502,20 @@ describe("agenda postgres", function() {
       },
       dbType: 'sqlDB'
     }, function(err) {
-
-      MongoClient.connect(mongoCfg, function( error, db ){
-        mongo = db;
-
-        setTimeout(function() {
-          clearJobs(function() {
-            jobs.define('someJob', jobProcessor);
-            jobs.define('send email', jobProcessor);
-            jobs.define('some job', jobProcessor);
-            jobs.define(jobType, jobProcessor);
-            done();
-          });
-        }, 50);
-      });
-
+      setTimeout(function() {
+        jobs.define('someJob', jobProcessor);
+        jobs.define('send email', jobProcessor);
+        jobs.define('some job', jobProcessor);
+        jobs.define(jobType, jobProcessor);
+        done();
+      }, 50);
     });
   });
 
   afterEach(function(done) {
     setTimeout(function() {
       jobs.stop(function() {
-        clearJobs(function() {
-            done();
-        });
+        done();
       });
     }, 50);
   });
@@ -1713,8 +1706,8 @@ describe("agenda postgres", function() {
             jobs.create('unique job', {type: 'active', userId: '123', 'other': true}).unique({'data.type': 'active', 'data.userId': '123'}).schedule("now").save(function(err, job1) {
               setTimeout(function() { // Avoid timing condition where nextRunAt coincidentally is the same
                 jobs.create('unique job', {type: 'active', userId: '123', 'other': false}).unique({'data.type': 'active', 'data.userId': '123'}).schedule("now").save(function(err, job2) {
-                  expect(job1.attrs.nextRunAt.toISOString()).not.to.equal(job2.attrs.nextRunAt.toISOString())
-                  mongo.collection('agendaJobs').find({name: 'unique job'}).toArray(function(err, j) {
+                  expect(job1.attrs.nextRunAt.toISOString()).not.to.equal(job2.attrs.nextRunAt.toISOString());
+                  jobs.jobs({name: 'unique job'}, function(err, j) {
                     expect(j).to.have.length(1);
                     done();
                   });
@@ -1726,8 +1719,8 @@ describe("agenda postgres", function() {
           it('should not modify job when unique matches and insertOnly is set to true', function(done) {
             jobs.create('unique job', {type: 'active', userId: '123', 'other': true}).unique({'data.type': 'active', 'data.userId': '123'}, { insertOnly: true }).schedule("now").save(function(err, job1) {
               jobs.create('unique job', {type: 'active', userId: '123', 'other': false}).unique({'data.type': 'active', 'data.userId': '123'}, {insertOnly: true}).schedule("now").save(function(err, job2) {
-                expect(job1.attrs.nextRunAt.toISOString()).to.equal(job2.attrs.nextRunAt.toISOString())
-                mongo.collection('agendaJobs').find({name: 'unique job'}).toArray(function(err, j) {
+                expect(job1.attrs.nextRunAt.toISOString()).to.equal(job2.attrs.nextRunAt.toISOString());
+                jobs.jobs({name: 'unique job'}, function(err, j) {
                   expect(j).to.have.length(1);
                   done();
                 });
@@ -1744,7 +1737,7 @@ describe("agenda postgres", function() {
 
             jobs.create('unique job', {type: 'active', userId: '123', 'other': true}).unique({'data.type': 'active', 'data.userId': '123', nextRunAt: time}).schedule(time).save(function(err, job) {
               jobs.create('unique job', {type: 'active', userId: '123', 'other': false}).unique({'data.type': 'active', 'data.userId': '123', nextRunAt: time2}).schedule(time).save(function(err, job) {
-                mongo.collection('agendaJobs').find({name: 'unique job'}).toArray(function(err, j) {
+                jobs.jobs({name: 'unique job'}, function(err, j) {
                   expect(j).to.have.length(2);
                   done();
                 });
@@ -1782,7 +1775,8 @@ describe("agenda postgres", function() {
             jobs.jobs({}, function(err, c) {
               expect(c.length).to.not.be(0);
               expect(c[0]).to.be.a(Job);
-              clearJobs(done);
+              done();
+
             });
           });
         });
@@ -1815,7 +1809,7 @@ describe("agenda postgres", function() {
           var job = jobs.create('someJob', {});
           job.save(function(err, job) {
             expect(job.attrs._id).to.be.ok();
-            clearJobs(done);
+            done();
           });
         });
       });
@@ -1832,12 +1826,12 @@ describe("agenda postgres", function() {
           }
         };
         jobs.create('jobA').save(checkDone);
-        jobs.create('jobA', 'someData').save(checkDone);
+        jobs.create('jobA', {data: 'someData'}).save(checkDone);
         jobs.create('jobB').save(checkDone);
       });
 
       afterEach(function(done) {
-        jobs._collection.remove({name: {$in: ['jobA', 'jobB']}}, function(err) {
+        jobs.cancel({name: {$in: ['jobA', 'jobB']}}, function(err) {
           if(err) return done(err);
           done();
         });
